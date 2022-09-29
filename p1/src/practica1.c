@@ -4,30 +4,41 @@
 #include <time.h>
 
 #define MAX_THREADS 4
+#define BILLION 1000000000L
+
+#ifdef DEBUG
+    #define DEBUG_PRINTF(...) printf("DEBUG: "__VA_ARGS__)
+#else
+    #define DEBUG_PRINTF(...)
+#endif
+
+
+double set_time(double sec, long nsec) {
+    long double time;
+    time = sec + ((double)nsec /BILLION);
+    DEBUG_PRINTF("[[[[[[[%Lf]]]]]]]]\n", time);
+    return time;
+}
 
 void *thread_function(void *ptr) {
-    long double time_before, time_after;
-    struct timespec begin;
-    char *time_str = malloc(sizeof(begin.tv_sec)*2);
-    clock_gettime(CLOCK_REALTIME, &begin);
-    sprintf(time_str, "%ld.%ld", begin.tv_sec, begin.tv_nsec);
+    int i;
     char *msg;
-    msg = (char *) ptr;
-    printf("[%s\n]", time_str);
-    time_before = (long double)atof(time_str);
-    printf("[%Lf\n]", time_before);
-    for (int j = 0; j <= MAX_THREADS; j++) {
-        fprintf(stdout, "%s - Iteracion %d: Coste=0.50s\n", msg, j+1);
-    }
+    struct timespec begin;
+    double time_before;
 
-    free(time_str);
+    msg = (char *) ptr;
+    clock_gettime(CLOCK_REALTIME, &begin);
+    time_before = set_time(begin.tv_sec, begin.tv_nsec);
+    for (i = 0; i <= MAX_THREADS; i++) {
+        //fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=0.50s\n", begin.tv_sec, begin.tv_nsec,msg, i+1);
+    }
     return NULL;
 }
 
 
 int main(int argc, char *argv[]) {
 
-    int i;
+    int i, j;
     char *threads_names[] = {"Thread 1", "Thread 2", "Thread 3", "Thread 4"};
     pthread_t threads[MAX_THREADS];
 
@@ -36,8 +47,8 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stderr, "HI, IM  MAIN\n");
 
-    for (i = 0; i < MAX_THREADS; i++) {
-        pthread_join(threads[i], NULL);
+    for (j = 0; j < MAX_THREADS; j++) {
+        pthread_join(threads[j], NULL);
     }
     return 0;
 }
