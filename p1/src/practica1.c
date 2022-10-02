@@ -15,7 +15,7 @@
 
 double set_time(double sec, long nsec) {
     long double time;
-    time = sec + ((double)nsec /BILLION);
+    time = sec + ((double) nsec / BILLION);
     DEBUG_PRINTF("[[[[[[[%Lf]]]]]]]]\n", time);
     return time;
 }
@@ -23,14 +23,20 @@ double set_time(double sec, long nsec) {
 void *thread_function(void *ptr) {
     int i;
     char *msg;
-    struct timespec begin;
-    double time_before;
+    struct timespec begin, end;
+    double time_before, time_after, cost;
+    volatile unsigned long long j;
 
     msg = (char *) ptr;
-    clock_gettime(CLOCK_REALTIME, &begin);
-    time_before = set_time(begin.tv_sec, begin.tv_nsec);
+    
     for (i = 0; i <= MAX_THREADS; i++) {
-        //fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=0.50s\n", begin.tv_sec, begin.tv_nsec,msg, i+1);
+        clock_gettime(CLOCK_REALTIME, &begin);
+        time_before = set_time(begin.tv_sec, begin.tv_nsec);
+        for (j = 0; j < 400000000ULL; j++);
+        clock_gettime(CLOCK_REALTIME, &end);
+        time_after = set_time(end.tv_sec, end.tv_nsec);
+        cost = time_after - time_before;
+        fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste = %2f s.\n", begin.tv_sec, begin.tv_nsec,msg, i+1, cost);
     }
     return NULL;
 }
@@ -45,7 +51,6 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < MAX_THREADS; i++) {
         pthread_create(&threads[i], NULL, thread_function, (void*) threads_names[i]);
     }
-    fprintf(stderr, "HI, IM  MAIN\n");
 
     for (j = 0; j < MAX_THREADS; j++) {
         pthread_join(threads[j], NULL);
