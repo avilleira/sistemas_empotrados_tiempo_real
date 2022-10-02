@@ -16,7 +16,8 @@
 double set_time(double sec, long nsec) {
     long double time;
     time = sec + ((double) nsec / BILLION);
-    DEBUG_PRINTF("[[[[[[[%Lf]]]]]]]]\n", time);
+    //Debug line used to watch if the time operation was done right.
+    DEBUG_PRINTF("[[[%Lf]]]]\n", time);
     return time;
 }
 
@@ -31,12 +32,13 @@ void *thread_function(void *ptr) {
     
     for (i = 0; i <= MAX_THREADS; i++) {
         clock_gettime(CLOCK_REALTIME, &begin);
-        time_before = set_time(begin.tv_sec, begin.tv_nsec);
         for (j = 0; j < 400000000ULL; j++);
+        time_before = set_time(begin.tv_sec, begin.tv_nsec);
         clock_gettime(CLOCK_REALTIME, &end);
         time_after = set_time(end.tv_sec, end.tv_nsec);
         cost = time_after - time_before;
-        fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste = %2f s.\n", begin.tv_sec, begin.tv_nsec,msg, i+1, cost);
+        fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s.\n",
+        begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
     }
     return NULL;
 }
@@ -55,5 +57,5 @@ int main(int argc, char *argv[]) {
     for (j = 0; j < MAX_THREADS; j++) {
         pthread_join(threads[j], NULL);
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
