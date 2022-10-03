@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
+#include <err.h>
 
 #define MAX_THREADS 4
 #define BILLION 1000000000L
@@ -37,8 +38,15 @@ void *thread_function(void *ptr) {
         clock_gettime(CLOCK_REALTIME, &end);
         time_after = set_time(end.tv_sec, end.tv_nsec);
         cost = time_after - time_before;
-        fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s.\n",
-        begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
+
+        if ( cost >= 0.90) {
+            fprintf(stderr, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s. (fallo temporal)\n",
+            begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
+        }
+        else {
+            fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s.\n",
+            begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
+        }
     }
     return NULL;
 }
@@ -51,11 +59,15 @@ int main(int argc, char *argv[]) {
     pthread_t threads[MAX_THREADS];
 
     for (i = 0; i < MAX_THREADS; i++) {
-        pthread_create(&threads[i], NULL, thread_function, (void*) threads_names[i]);
+        if ( pthread_create(&threads[i], NULL, thread_function, (void*) threads_names[i]) != 0) {
+            warnx("error creating thread"); 
+        }
     }
 
     for (j = 0; j < MAX_THREADS; j++) {
-        pthread_join(threads[j], NULL);
+        if ( pthread_join(threads[j], NULL) != 0) {
+            warnx("error joining thread");
+        }
     }
     return EXIT_SUCCESS;
 }
