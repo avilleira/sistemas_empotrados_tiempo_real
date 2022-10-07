@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <err.h>
+#include <unistd.h>
 
 #define MAX_THREADS 4
 #define BILLION 1000000000L
@@ -25,7 +26,7 @@ double set_time(double sec, long nsec) {
 void *thread_function(void *ptr) {
     int i;
     char *msg;
-    struct timespec begin, end;
+    struct timespec begin, end, time_to_wait, remainig;
     double time_before, time_after, cost;
     volatile unsigned long long j;
 
@@ -38,6 +39,9 @@ void *thread_function(void *ptr) {
         clock_gettime(CLOCK_REALTIME, &end);
         time_after = set_time(end.tv_sec, end.tv_nsec);
         cost = time_after - time_before;
+        time_to_wait.tv_nsec = (0.90 - cost) * BILLION;
+        DEBUG_PRINTF("TIEMPO ESPERADO: %ld]]]]\n", time_to_wait.tv_nsec);
+        time_to_wait.tv_sec = 0;
 
         if ( cost >= 0.90) {
             fprintf(stderr, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s. (fallo temporal)\n",
@@ -46,6 +50,7 @@ void *thread_function(void *ptr) {
         else {
             fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s.\n",
             begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
+            nanosleep(&remainig,&time_to_wait);
         }
     }
     return NULL;
