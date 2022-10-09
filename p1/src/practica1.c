@@ -3,9 +3,11 @@
 #include <pthread.h>
 #include <time.h>
 #include <err.h>
+#include <unistd.h>
 
 #define MAX_THREADS 4
 #define BILLION 1000000000L
+#define PERIOD 0.90
 
 #ifdef DEBUG
     #define DEBUG_PRINTF(...) printf("DEBUG: "__VA_ARGS__)
@@ -32,20 +34,21 @@ void *thread_function(void *ptr) {
     msg = (char *) ptr;
     
     for (i = 0; i <= MAX_THREADS; i++) {
-        clock_gettime(CLOCK_REALTIME, &begin);
+        clock_gettime(CLOCK_REALTIME, &begin); //Get the time before the loop.
         for (j = 0; j < 400000000ULL; j++);
         time_before = set_time(begin.tv_sec, begin.tv_nsec);
         clock_gettime(CLOCK_REALTIME, &end);
         time_after = set_time(end.tv_sec, end.tv_nsec);
         cost = time_after - time_before;
 
-        if ( cost >= 0.90) {
+        if ( cost >= PERIOD) {
             fprintf(stderr, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s. (fallo temporal)\n",
             begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
         }
         else {
             fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s.\n",
             begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
+            sleep(PERIOD - cost);
         }
     }
     return NULL;
