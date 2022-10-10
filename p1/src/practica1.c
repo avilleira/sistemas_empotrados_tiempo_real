@@ -15,9 +15,14 @@
     #define DEBUG_PRINTF(...)
 #endif
 
+void usage() {
+    fprintf(stderr, "usage: practica1 \n");
+    exit(1);
+}
 
 double set_time(double sec, long nsec) {
     long double time;
+
     time = sec + ((double) nsec / BILLION);
     //Debug line used to watch if the time operation was done right.
     DEBUG_PRINTF("[[[%Lf]]]]\n", time);
@@ -27,7 +32,7 @@ double set_time(double sec, long nsec) {
 void *thread_function(void *ptr) {
     int i;
     char *msg;
-    struct timespec begin, end, time_to_wait, remainig;
+    struct timespec begin, end, time_to_wait, remaining;
     double time_before, time_after, cost;
     volatile unsigned long long j;
 
@@ -41,17 +46,18 @@ void *thread_function(void *ptr) {
         time_after = set_time(end.tv_sec, end.tv_nsec);
         cost = time_after - time_before;
         time_to_wait.tv_nsec = (0.90 - cost) * BILLION;
-        DEBUG_PRINTF("TIEMPO ESPERADO: %ld]]]]\n", time_to_wait.tv_nsec);
         time_to_wait.tv_sec = 0;
-
+        
         if ( cost >= PERIOD) {
-            fprintf(stderr, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s. (fallo temporal)\n",
+            fprintf(stderr, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s. (fallo temporal)\n", 
             begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
         }
         else {
             fprintf(stdout, "[%ld.%ld] %s - Iteracion %d: Coste=%.2f s.\n",
             begin.tv_sec, begin.tv_nsec,msg, i + 1, cost);
-            nanosleep(&remainig,&time_to_wait);
+            /*nanosleep() suspends  the execution of the calling thread for a 
+            time specified in time_to_wait.*/
+            nanosleep(&time_to_wait, &remaining);
         }
     }
     return NULL;
@@ -64,8 +70,13 @@ int main(int argc, char *argv[]) {
     char *threads_names[] = {"Thread 1", "Thread 2", "Thread 3", "Thread 4"};
     pthread_t threads[MAX_THREADS];
 
+    if (argc != 1) {
+        usage();
+    }
+
     for (i = 0; i < MAX_THREADS; i++) {
-        if ( pthread_create(&threads[i], NULL, thread_function, (void*) threads_names[i]) != 0) {
+        if ( pthread_create(&threads[i], NULL, thread_function,
+         (void*) threads_names[i]) != 0) {
             warnx("error creating thread"); 
         }
     }
@@ -75,5 +86,6 @@ int main(int argc, char *argv[]) {
             warnx("error joining thread");
         }
     }
+
     return EXIT_SUCCESS;
 }
