@@ -9,7 +9,7 @@
 #include <time.h>
 
 #define N_CORES (int) sysconf (_SC_NPROCESSORS_ONLN)
-#define EXECUTION_TIME 60
+#define EXECUTION_TIME 60000000000L
 #define SLEEP_TIME 1000000
 #define BILLION 1000000000L
 
@@ -26,21 +26,33 @@ void usage() {
     exit(1);
 }
 
+//Transforming timespec structure into a double.
+double calculate_time(struct timespec time){
+    double new_time;
+
+    new_time = time.tv_sec + ((double) time.tv_nsec/BILLION);
+    return new_time;
+}
 // This thread function should calculate the latency.
 void* latency() {
-    struct timespec begin, end, time_to_wait, rem;
-    long double b_time, e_time;
+
+    struct timespec begin, end, time_to_wait, rem, start, now;
+    double b_time, e_time, latency;
 
     time_to_wait.tv_nsec = SLEEP_TIME;
     time_to_wait.tv_sec = 0;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
     clock_gettime(CLOCK_MONOTONIC, &begin);
     nanosleep(&time_to_wait, &rem);
     clock_gettime(CLOCK_MONOTONIC, &end);
-    b_time = begin.tv_sec + (begin.tv_nsec/BILLION);
-    e_time = end.tv_sec + ((double) end.tv_nsec/BILLION);
-
-    printf("INICIO: %Lf\n", b_time);
-    printf("FINAL: %f\n", ((double) end.tv_nsec)/BILLION);
+    // Calculating latency
+    b_time = calculate_time(begin);
+    e_time = calculate_time(end);
+    latency = e_time - b_time;
+    printf("INICIO: %.9f\n", b_time);
+    printf("FINAL: %ld\n", SLEEP_TIME/BILLION);
+    printf("RESTA: %.9f\n", latency);
     
     return NULL;
 }
@@ -53,7 +65,6 @@ int main (int argc, char *argv[]) {
     cpu_set_t cpuset[N_CORES];
     struct sched_param param;
     
-
     if (argc != 1)
         usage();
     
