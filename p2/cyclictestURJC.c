@@ -7,6 +7,7 @@
 #include <err.h>
 #include <errno.h>
 #include <time.h>
+#include <string.h>
 
 #define N_CORES (int) sysconf (_SC_NPROCESSORS_ONLN)
 #define EXECUTION_TIME 60
@@ -19,6 +20,7 @@
 #else
     #define DEBUG_PRINTF(...)
 #endif
+
 
 // Controling usage error.
 void usage() {
@@ -62,11 +64,10 @@ void* latency(void *ptr) {
         e_time = calculate_time(end);
         latency = (long) ((e_time - b_time - wait_time)*BILLION);
         avg = avg + latency;
-
         if (latency >= max)
             max = latency;
         clock_gettime(CLOCK_MONOTONIC, &now);
-    }
+        }
     //printing final result.
     printf("[%d] latencia media = %09ld ns. | max = %09ld ns.\n", 
         thread_id, avg/it_num, max);
@@ -76,7 +77,7 @@ void* latency(void *ptr) {
 
 int main (int argc, char *argv[]) {
 
-    int latency_target_fd, i, n;
+    int latency_target_fd, i, n, id[N_CORES];
     static int32_t latency_target_value;
     pthread_t threads[N_CORES];
     cpu_set_t cpuset[N_CORES];
@@ -95,12 +96,15 @@ int main (int argc, char *argv[]) {
         CPU_ZERO(&cpuset[n]);
         CPU_SET(n, &cpuset[n]);
     }
-    
-    param.sched_priority = 99;
+
+    // Creating ids for the threads:
+    for (n = 0; n < N_CORES; n++) {
+        id[n] = n;
+    }
+
     for (i = 0; i < N_CORES; i++) {
-        if (pthread_create(&threads[i], NULL, latency, (void*) &i) != 0) {
+        if (pthread_create(&threads[i], NULL, latency, (void*) &id[i]) != 0)
             warnx("error creating thread");
-        }
         pthread_setschedparam(threads[i], SCHED_FIFO, &param); 
         if (pthread_setaffinity_np(threads[i], sizeof(cpuset[i]), &cpuset[i]) != 0)
             err(EXIT_FAILURE, "can't set affinity.");
