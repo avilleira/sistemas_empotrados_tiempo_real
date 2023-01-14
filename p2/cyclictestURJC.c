@@ -9,7 +9,7 @@
 #include <time.h>
 
 #define N_CORES (int) sysconf (_SC_NPROCESSORS_ONLN)
-#define EXECUTION_TIME 60000000000L
+#define EXECUTION_TIME 60
 #define SLEEP_TIME 1000000
 #define BILLION 1000000000L
 
@@ -34,25 +34,42 @@ double calculate_time(struct timespec time){
     return new_time;
 }
 // This thread function should calculate the latency.
-void* latency() {
+void* latency(void *ptr) {
 
     struct timespec begin, end, time_to_wait, rem, start, now;
-    double b_time, e_time, latency;
+    double b_time, e_time, wait_time;
+    long avg, latency, max;
+    int thread_id, it_num;
 
+    thread_id = *(int*) ptr;
     time_to_wait.tv_nsec = SLEEP_TIME;
     time_to_wait.tv_sec = 0;
+    wait_time = calculate_time(time_to_wait);
+    avg = 0;
+    it_num = 0;
+    max = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    clock_gettime(CLOCK_MONOTONIC, &begin);
-    nanosleep(&time_to_wait, &rem);
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    // Calculating latency
-    b_time = calculate_time(begin);
-    e_time = calculate_time(end);
-    latency = e_time - b_time;
-    printf("INICIO: %.9f\n", b_time);
-    printf("FINAL: %ld\n", SLEEP_TIME/BILLION);
-    printf("RESTA: %.9f\n", latency);
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    while ((calculate_time(now) - calculate_time(start)) < EXECUTION_TIME) {
+        it_num++;
+        clock_gettime(CLOCK_MONOTONIC, &begin);
+        nanosleep(&time_to_wait, &rem);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        // Calculating latency
+        b_time = calculate_time(begin);
+        e_time = calculate_time(end);
+        latency = (long) ((e_time - b_time - wait_time)*BILLION);
+        avg = avg + latency;
+
+        if (latency >= max)
+            max = latency;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+    }
+    //printing final result.
+    printf("[%d] latencia media = %09ld ns. | max = %09ld ns.\n", 
+        thread_id, avg/it_num, max);
     
     return NULL;
 }
@@ -80,15 +97,15 @@ int main (int argc, char *argv[]) {
     }
     
     param.sched_priority = 99;
-    for (i = 0; i < 1; i++) {
-        if (pthread_create(&threads[i], NULL, latency, NULL) != 0) {
+    for (i = 0; i < N_CORES; i++) {
+        if (pthread_create(&threads[i], NULL, latency, (void*) &i) != 0) {
             warnx("error creating thread");
         }
         pthread_setschedparam(threads[i], SCHED_FIFO, &param); 
         if (pthread_setaffinity_np(threads[i], sizeof(cpuset[i]), &cpuset[i]) != 0)
             err(EXIT_FAILURE, "can't set affinity.");
     }
-    for (int j = 0; j < 1; j++) {
+    for (int j = 0; j < N_CORES; j++) {
         pthread_join(threads[j], NULL);
     }
     return EXIT_SUCCESS;
