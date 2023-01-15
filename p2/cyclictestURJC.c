@@ -21,11 +21,13 @@
     #define DEBUG_PRINTF(...)
 #endif
 
+//Global variables
+FILE *fd;
 
 // Controling usage error.
 void usage() {
     printf("usage: ./cyclictestURJC\n");
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 //Transforming timespec structure into a double.
@@ -35,14 +37,23 @@ double calculate_time(struct timespec time){
     new_time = time.tv_sec + ((double) time.tv_nsec/BILLION);
     return new_time;
 }
+
+// Writting in the file.
+void write_file(long *latencies, int n, int id) {
+
+    int i;
+    for (i = 0; i < n; i++)
+        fprintf(fd, "%d, %d, %ld\n", id, i, latencies[i]);
+}
+
 // This thread function should calculate the latency.
 void* latency(void *ptr) {
-
     struct timespec begin, end, time_to_wait, rem, start, now;
     double b_time, e_time, wait_time;
-    long avg, latency, max;
+    long avg, latency, max, *latencies_list;
     int thread_id, it_num;
 
+    // Initializing variables
     thread_id = *(int*) ptr;
     time_to_wait.tv_nsec = SLEEP_TIME;
     time_to_wait.tv_sec = 0;
@@ -50,6 +61,8 @@ void* latency(void *ptr) {
     avg = 0;
     it_num = 0;
     max = 0;
+    //Reserving dynamic memory for the latencies list:
+    latencies_list = malloc(EXECUTION_TIME*SLEEP_TIME*sizeof(long));
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -63,15 +76,17 @@ void* latency(void *ptr) {
         b_time = calculate_time(begin);
         e_time = calculate_time(end);
         latency = (long) ((e_time - b_time - wait_time)*BILLION);
-        avg = avg + latency;
+        avg +=  latency;
         if (latency >= max)
             max = latency;
         clock_gettime(CLOCK_MONOTONIC, &now);
+        latencies_list[it_num-1] = latency;
         }
     //printing final result.
     printf("[%d] latencia media = %09ld ns. | max = %09ld ns.\n", 
         thread_id, avg/it_num, max);
-    
+    write_file(latencies_list, it_num, thread_id);
+    free(latencies_list);
     return NULL;
 }
 
@@ -101,6 +116,8 @@ int main (int argc, char *argv[]) {
     for (n = 0; n < N_CORES; n++) {
         id[n] = n;
     }
+    fd = fopen("cyclictestURJC.csv", "w+");
+    fprintf(fd, "CPU, NUMERO_ITERACION, LATENCIA\n");
 
     for (i = 0; i < N_CORES; i++) {
         if (pthread_create(&threads[i], NULL, latency, (void*) &id[i]) != 0)
@@ -112,5 +129,7 @@ int main (int argc, char *argv[]) {
     for (int j = 0; j < N_CORES; j++) {
         pthread_join(threads[j], NULL);
     }
+
+    fclose(fd);
     return EXIT_SUCCESS;
 }
