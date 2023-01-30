@@ -4,14 +4,18 @@
 #include <TimerOne.h>
 #include "DHT.h"
 
+#define MILISECONDS 1000
+
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
-int ledPins[] = {9, 1};
+int ledPins[] = {17, 16};
 int ledstate = LOW, PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A1, PIN_JOYY = A0;
-int PIN_JOY_BUTTON = 6;
+int PIN_JOY_BUTTON = 6, SWITCH_PIN = 9;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 DHT dht(10, DHT11);
+long counter;
 
 char *menu[] = { "Cafe Solo 1", "Cafe Cortado 1.10", "Cafe Doble 1.25", "Cafe Premium 1.5", "Chocolate 2.00"};
+char *admin[] = { "Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"};
 
 
 void start() {
@@ -52,7 +56,6 @@ void show_temp_hum() {
   long previous_time;
   hum = dht.readHumidity();
   temp = dht.readTemperature();
-  Serial.println(temp);
 
   lcd.print("Temp: ");
   lcd.print(temp);
@@ -73,18 +76,17 @@ void show_temp_hum() {
 
 void service_menu() { 
   int Xvalue = 0, Yvalue = 0, index_menu = 0, previous_time;
-  bool buttonValue = false;
+  float pwm;
+  bool buttonValue = true;
   int time = random(4,8);
 
-  lcd.print(menu[index_menu]);
-
-  while(buttonValue == false) {
+  while(buttonValue == true) {
     Xvalue = analogRead(PIN_JOYX);
     delay(100);
     Yvalue = analogRead(PIN_JOYY);
-    //buttonValue = digitalRead(PIN_JOY_BUTTON);
+    buttonValue = digitalRead(PIN_JOY_BUTTON);
     
-
+    
     if (Yvalue < 7) {
       lcd.clear();
       index_menu++;
@@ -100,19 +102,38 @@ void service_menu() {
       }
     }
     lcd.setCursor(0,0);
-    lcd.print(menu[index_menu]);
+    lcd.print(menu[index_menu]);;
   }
-  Serial.print("HH");
   lcd.clear();
   lcd.print("Preparando Cafe...");
+  pwm = 15;
   previous_time = millis();
-  while ((millis() - previous_time) < time){}
+  while ((millis() - previous_time) < time*MILISECONDS){
+    if (pwm < 255)
+      pwm +=0.01;
+    analogWrite(ledPins[1], pwm);
+  }
   lcd.clear();
+  digitalWrite(ledPins[1], LOW);
   lcd.print("RETIRE BEBIDA");
   previous_time = millis();
-  while ((millis() - previous_time) < 3){}
+  while ((millis() - previous_time) < 3*MILISECONDS){}
   lcd.clear();
-  Serial.print("TT");
+}
+
+void see_counter() {
+  lcd.clear();
+  lcd.print(counter/MILISECONDS);
+  
+}
+
+void admin_menu() {
+
+}
+
+void switch_pressed() {
+  Serial.println("ME HAN PULSADO.");
+  delay(5000);
 }
 
 
@@ -127,13 +148,18 @@ void setup() {
   pinMode(10, INPUT_PULLUP);
   dht.begin();
   lcd.noBlink();
+
+  // Counter:
+  counter = millis();
+  // Catching interrupts: 
+  pinMode(SWITCH_PIN, INPUT_PULLUP);
+  
   //set Joystick:
   pinMode(PIN_JOY_BUTTON, INPUT_PULLUP);
   //Setting LED's mode:
   for (int index = 0; index < 4; index++){
     pinMode(ledPins[index], OUTPUT);
   }
-
   //Setting up Distance sensor:
   pinMode(PIN_TRIGGER, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
@@ -144,6 +170,7 @@ void setup() {
 void service() {
   if (ping() < 100) {
     lcd.clear();
+
     show_temp_hum();
     service_menu();
   }
@@ -152,9 +179,8 @@ void service() {
 }
 
 void loop() {
-
-  //Se que por ahora solo tengo el servicio, pero para la reentrega lo tendré listo.
   lcd.setCursor(0,0);
+  
   // print the number of seconds since reset:
   service();
 
