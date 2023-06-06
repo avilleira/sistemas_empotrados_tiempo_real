@@ -182,6 +182,6 @@ void loop() {
   lcd.setCursor(0,0);
   
   // print the number of seconds since reset:
-  service();
+  // service();
 
 }
