@@ -6,13 +6,15 @@
 
 #define MILISECONDS 1000
 
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 9;
 int ledPins[] = {17, 16};
-int ledstate = LOW, PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A1, PIN_JOYY = A0;
-int PIN_JOY_BUTTON = 6, SWITCH_PIN = 9;
+int ledstate = LOW, PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A0, PIN_JOYY = A1;
+int PIN_JOY_BUTTON = 6, SWITCH_PIN = 2;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 DHT dht(10, DHT11);
 long counter;
+
+const int MAX_Y = 1000, MIN_Y = 60;
 
 char *menu[] = { "Cafe Solo 1", "Cafe Cortado 1.10", "Cafe Doble 1.25", "Cafe Premium 1.5", "Chocolate 2.00"};
 char *admin[] = { "Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"};
@@ -82,19 +84,17 @@ void service_menu() {
 
   while(buttonValue == true) {
     Xvalue = analogRead(PIN_JOYX);
-    delay(100);
     Yvalue = analogRead(PIN_JOYY);
     buttonValue = digitalRead(PIN_JOY_BUTTON);
     
-    
-    if (Yvalue < 7) {
+    if (Yvalue < MIN_Y) {
       lcd.clear();
       index_menu++;
       if (index_menu > 4) {
         index_menu = 0;
       }
     }
-    else if (Yvalue > 990) {
+    else if (Yvalue > MAX_Y) {
       lcd.clear();
       index_menu--;
       if (index_menu < 0) {
@@ -102,7 +102,7 @@ void service_menu() {
       }
     }
     lcd.setCursor(0,0);
-    lcd.print(menu[index_menu]);;
+    lcd.print(menu[index_menu]);
   }
   lcd.clear();
   lcd.print("Preparando Cafe...");
@@ -119,6 +119,8 @@ void service_menu() {
   previous_time = millis();
   while ((millis() - previous_time) < 3*MILISECONDS){}
   lcd.clear();
+
+  service();
 }
 
 void see_counter() {
@@ -128,6 +130,39 @@ void see_counter() {
 }
 
 void admin_menu() {
+
+  int y_value = 0, index_menu = 0, i;
+  bool active = true, use_joystick = true;
+
+  // Turning on the leds:
+  for (i = 0; i < 2; i++)
+    digitalWrite(ledPins[i], HIGH);
+  while (active == true) {
+    y_value = analogRead(PIN_JOYY);
+    Serial.println(y_value);
+    if ((y_value < MIN_Y) && (use_joystick == true)) {
+      lcd.clear();
+      use_joystick = false;
+      index_menu++;
+
+      if (index_menu > 3)
+        index_menu = 0;
+    }
+    else if ((y_value > MAX_Y) && (use_joystick == true)) {
+      lcd.clear();
+      use_joystick = false;
+      index_menu--;
+
+      if (index_menu < 0)
+        index_menu = 3;
+    }
+    else{
+      use_joystick = true;
+    }
+    // Printing menu pos:
+    lcd.setCursor(0,0);
+    lcd.print(admin[index_menu]);
+  }
 
 }
 
@@ -182,6 +217,6 @@ void loop() {
   lcd.setCursor(0,0);
   
   // print the number of seconds since reset:
-  // service();
+  admin_menu();
 
 }
