@@ -9,12 +9,12 @@
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 9;
 int ledPins[] = {17, 16};
 int ledstate = LOW, PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A0, PIN_JOYY = A1;
-int PIN_JOY_BUTTON = 6, SWITCH_PIN = 2;
+int PIN_JOY_BUTTON = 6, SWITCH_PIN = 2, PIN_TEMP = 10;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 DHT dht(10, DHT11);
 long counter;
 
-const int MAX_Y = 1000, MIN_Y = 60;
+const int MAX_Y = 1000, MIN_Y = 65;
 
 char *menu[] = { "Cafe Solo 1", "Cafe Cortado 1.10", "Cafe Doble 1.25", "Cafe Premium 1.5", "Chocolate 2.00"};
 char *admin[] = { "Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"};
@@ -103,6 +103,8 @@ void service_menu() {
     }
     lcd.setCursor(0,0);
     lcd.print(menu[index_menu]);
+    //Reseting watchdog
+    wdt_reset();
   }
   lcd.clear();
   lcd.print("Preparando Cafe...");
@@ -119,27 +121,29 @@ void service_menu() {
   previous_time = millis();
   while ((millis() - previous_time) < 3*MILISECONDS){}
   lcd.clear();
-
   service();
 }
 
+// Shows counter in the display.
 void see_counter() {
+  long real_time;
+
+  real_time = (millis() - counter) / MILISECONDS;
   lcd.clear();
-  lcd.print(counter/MILISECONDS);
-  
+  lcd.print(real_time);
 }
 
-void admin_menu() {
+int admin_menu() {
 
   int y_value = 0, index_menu = 0, i;
-  bool active = true, use_joystick = true;
-
+  bool not_pressed = true, use_joystick = true;
   // Turning on the leds:
   for (i = 0; i < 2; i++)
     digitalWrite(ledPins[i], HIGH);
-  while (active == true) {
+  while (not_pressed == true) {
     y_value = analogRead(PIN_JOYY);
-    Serial.println(y_value);
+    not_pressed = digitalRead(PIN_JOY_BUTTON);
+
     if ((y_value < MIN_Y) && (use_joystick == true)) {
       lcd.clear();
       use_joystick = false;
@@ -156,19 +160,18 @@ void admin_menu() {
       if (index_menu < 0)
         index_menu = 3;
     }
-    else{
+    else
       use_joystick = true;
-    }
     // Printing menu pos:
     lcd.setCursor(0,0);
     lcd.print(admin[index_menu]);
+    wdt_reset();
   }
-
+  return index_menu;
 }
 
 void switch_pressed() {
   Serial.println("ME HAN PULSADO.");
-  delay(5000);
 }
 
 
@@ -178,14 +181,20 @@ void setup() {
   // set up the LCD's number of columns and rows:
 
   lcd.begin(20, 2);
+  lcd.noBlink();
   
-  //Initialize temperature humidity sensor:
-  pinMode(10, INPUT_PULLUP);
+  // Deactivating and setting up watchdog:
+  wdt_disable();
+  wdt_enable(WDTO_8S);
+
+  // Initialize temperature humidity sensor:
+  pinMode(PIN_TEMP, INPUT_PULLUP);
   dht.begin();
   lcd.noBlink();
 
   // Counter:
   counter = millis();
+
   // Catching interrupts: 
   pinMode(SWITCH_PIN, INPUT_PULLUP);
   
@@ -217,6 +226,7 @@ void loop() {
   lcd.setCursor(0,0);
   
   // print the number of seconds since reset:
+  see_counter();
   admin_menu();
-
+  wdt_reset();
 }
