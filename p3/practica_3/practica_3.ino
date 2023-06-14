@@ -6,31 +6,31 @@
 
 #define MILISECONDS 1000
 
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 9;
-int ledPins[] = {17, 16};
-int ledstate = LOW, PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A0, PIN_JOYY = A1;
-int PIN_JOY_BUTTON = 6, SWITCH_PIN = 2, PIN_TEMP = 10;
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
-DHT dht(10, DHT11);
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 9; // LCD pins
+const int MAX_Y = 1000, MIN_Y = 100;
+const int PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A0, PIN_JOYY = A1, PIN_JOY_BUTTON = 6, SWITCH_PIN = 2, PIN_TEMP = 10;
+
+const int led_pins[] = {17, 16};
+const char *menu[] = { "Cafe Solo 1", "Cafe Cortado 1.10", "Cafe Doble 1.25", "Cafe Premium 1.5", "Chocolate 2.00"};
+const char *admin[] = { "Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"};
+
+int led_state = LOW;
 long counter;
 
-const int MAX_Y = 1000, MIN_Y = 65;
-
-char *menu[] = { "Cafe Solo 1", "Cafe Cortado 1.10", "Cafe Doble 1.25", "Cafe Premium 1.5", "Chocolate 2.00"};
-char *admin[] = { "Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"};
-
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+DHT dht(10, DHT11);
 
 void start() {
   int i = 0;
   unsigned long previous_time;
   lcd.print("CARGANDO...");
   previous_time = millis();
-  digitalWrite(ledPins[0], !ledstate);
-  ledstate = !ledstate;
+  digitalWrite(led_pins[0], !led_state);
+  led_state = !led_state;
   while (i<5) {
     if ((millis()-previous_time) >= 1000) {
-      digitalWrite(ledPins[0], !ledstate);
-      ledstate = !ledstate;
+      digitalWrite(led_pins[0], !led_state);
+      led_state = !led_state;
       previous_time = millis();
       i++;
     }
@@ -113,10 +113,10 @@ void service_menu() {
   while ((millis() - previous_time) < time*MILISECONDS){
     if (pwm < 255)
       pwm +=0.01;
-    analogWrite(ledPins[1], pwm);
+    analogWrite(led_pins[1], pwm);
   }
   lcd.clear();
-  digitalWrite(ledPins[1], LOW);
+  digitalWrite(led_pins[1], LOW);
   lcd.print("RETIRE BEBIDA");
   previous_time = millis();
   while ((millis() - previous_time) < 3*MILISECONDS){}
@@ -139,7 +139,7 @@ int admin_menu() {
   bool not_pressed = true, use_joystick = true;
   // Turning on the leds:
   for (i = 0; i < 2; i++)
-    digitalWrite(ledPins[i], HIGH);
+    digitalWrite(led_pins[i], HIGH);
   while (not_pressed == true) {
     y_value = analogRead(PIN_JOYY);
     not_pressed = digitalRead(PIN_JOY_BUTTON);
@@ -202,7 +202,7 @@ void setup() {
   pinMode(PIN_JOY_BUTTON, INPUT_PULLUP);
   //Setting LED's mode:
   for (int index = 0; index < 4; index++){
-    pinMode(ledPins[index], OUTPUT);
+    pinMode(led_pins[index], OUTPUT);
   }
   //Setting up Distance sensor:
   pinMode(PIN_TRIGGER, OUTPUT);
@@ -226,7 +226,8 @@ void loop() {
   lcd.setCursor(0,0);
   
   // print the number of seconds since reset:
-  see_counter();
+  //see_counter();
+  attachInterrupt(digitalPinToInterrupt(SWITCH_PIN), switch_pressed, FALLING);
   admin_menu();
   wdt_reset();
 }
