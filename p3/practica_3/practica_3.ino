@@ -5,16 +5,20 @@
 #include "DHT.h"
 
 #define MILISECONDS 1000
+#define DEBOUNCE_T 20
 
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 9; // LCD pins
 const int MAX_Y = 1000, MIN_Y = 100;
 const int PIN_TRIGGER = 8, PIN_ECHO = 7, PIN_JOYX = A0, PIN_JOYY = A1, PIN_JOY_BUTTON = 6, SWITCH_PIN = 2, PIN_TEMP = 10;
 
 const int led_pins[] = {17, 16};
-const char *menu[] = { "Cafe Solo 1", "Cafe Cortado 1.10", "Cafe Doble 1.25", "Cafe Premium 1.5", "Chocolate 2.00"};
+const char *menu[] = { "Cafe Solo ", "Cafe Cortado ", "Cafe Doble ", "Cafe Premium ", "Chocolate "};
 const char *admin[] = { "Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"};
 
-int led_state = LOW;
+volatile bool interrupt_flag = false;
+bool admin_sts = false;
+int led_state = LOW; 
+double prices[] = {1.00, 1.10, 1.25, 1.50, 2.00};
 long counter;
 
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
@@ -59,15 +63,10 @@ void show_temp_hum() {
   hum = dht.readHumidity();
   temp = dht.readTemperature();
 
-  lcd.print("Temp: ");
-  lcd.print(temp);
-  lcd.print(" C");
+  lcd.print(String("Temp: ") + temp + String(" C"));
   lcd.setCursor(0,1);
-  lcd.print("Hum ");
-  lcd.print(hum);
-  lcd.print("%");
+  lcd.print(String("Hum ") + hum + String("%"));
 
-  
   previous_time = millis();
 
   while ((millis() - previous_time) < 5000){}
@@ -103,6 +102,9 @@ void service_menu() {
     }
     lcd.setCursor(0,0);
     lcd.print(menu[index_menu]);
+    lcd.setCursor(0,1);
+    lcd.print(prices[index_menu]);
+    lcd.setCursor(0,0);
     //Reseting watchdog
     wdt_reset();
   }
@@ -121,7 +123,7 @@ void service_menu() {
   previous_time = millis();
   while ((millis() - previous_time) < 3*MILISECONDS){}
   lcd.clear();
-  service();
+  service_menu();
 }
 
 // Shows counter in the display.
@@ -183,41 +185,53 @@ int admin_menu() {
   return index_menu;
 }
 
+// In order to avoid the millis() problem, we need to make the callback this way.
+void switch_callback() {
+  interrupt_flag = true;
+  interrupts();
+}
+
 void switch_pressed() {
-  Serial.println("ME HAN PULSADO.");
+  long time, current_time;
+  int switch_state;
+
+  time = millis();
+  switch_state = digitalRead(SWITCH_PIN);
+  Serial.println("HOLA QUE TAl");
+  while (millis() - time < DEBOUNCE_T){
+    Serial.println("HOLA ADIOS");
+  }
+
+  while (switch_state == 0) {
+    switch_state = digitalRead(SWITCH_PIN);
+  }
 }
 
 
 void setup() {
 
   Serial.begin(9600);
-  // set up the LCD's number of columns and rows:
-
+  // Set up the LCD
   lcd.begin(20, 2);
   lcd.noBlink();
-  
   // Deactivating and setting up watchdog:
   wdt_disable();
   wdt_enable(WDTO_8S);
-
   // Initialize temperature humidity sensor:
   pinMode(PIN_TEMP, INPUT_PULLUP);
   dht.begin();
-  lcd.noBlink();
-
   // Counter:
   counter = millis();
-
   // Catching interrupts: 
   pinMode(SWITCH_PIN, INPUT_PULLUP);
-  
-  //set Joystick:
+  attachInterrupt(digitalPinToInterrupt(SWITCH_PIN), switch_callback, FALLING);
+  // Set joystick button:
   pinMode(PIN_JOY_BUTTON, INPUT_PULLUP);
-  //Setting LED's mode:
+  // Setting LED's mode:
   for (int index = 0; index < 4; index++){
     pinMode(led_pins[index], OUTPUT);
   }
-  //Setting up Distance sensor:
+  // Setting up distance sensor:
   pinMode(PIN_TRIGGER, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
   start();
@@ -227,7 +241,6 @@ void setup() {
 void service() {
   if (ping() < 100) {
     lcd.clear();
-
     show_temp_hum();
     service_menu();
   }
@@ -239,16 +252,21 @@ void loop() {
 
   int position;
   lcd.setCursor(0,0);
-  
+  if (interrupt_flag == true){
+    switch_pressed();
+  }
   // print the number of seconds since reset:
   //see_counter();
-  attachInterrupt(digitalPinToInterrupt(SWITCH_PIN), switch_pressed, FALLING);
-  position = admin_menu();
+  
+  service_menu();
+
+  /*position = admin_menu();
+  
   if (position == 0) {
     show_temp_hum();
   }
   else if (position == 1) {
     show_distance();
-  }
+  }*/
   wdt_reset();
 }
