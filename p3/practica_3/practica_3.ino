@@ -41,6 +41,11 @@ void start() {
   }
 }
 
+void software_reset() {
+  wdt_enable(WDTO_15MS);
+  while (true);
+}
+
 long ping () {
   long duration, distance_cm;
   //Generamos un pulso limpio primero haciendo una espera de 4 segundos
@@ -82,6 +87,8 @@ void service_menu() {
   int time = random(4,8);
 
   while(buttonValue == true) {
+    if (interrupt_flag == true)
+      break;
     Xvalue = analogRead(PIN_JOYX);
     Yvalue = analogRead(PIN_JOYY);
     buttonValue = digitalRead(PIN_JOY_BUTTON);
@@ -117,6 +124,7 @@ void service_menu() {
       pwm +=0.01;
     analogWrite(led_pins[1], pwm);
   }
+  wdt_reset();
   lcd.clear();
   digitalWrite(led_pins[1], LOW);
   lcd.print("RETIRE BEBIDA");
@@ -155,6 +163,8 @@ int admin_menu() {
   for (i = 0; i < 2; i++)
     digitalWrite(led_pins[i], HIGH);
   while (not_pressed == true) {
+    if (interrupt_flag == true)
+      break;
     y_value = analogRead(PIN_JOYY);
     not_pressed = digitalRead(PIN_JOY_BUTTON);
 
@@ -188,10 +198,9 @@ int admin_menu() {
 // In order to avoid the millis() problem, we need to make the callback this way.
 void switch_callback() {
   interrupt_flag = true;
-  interrupts();
 }
 
-void switch_pressed() {
+long switch_pressed() {
   long time, current_time;
   int switch_state;
 
@@ -199,12 +208,14 @@ void switch_pressed() {
   switch_state = digitalRead(SWITCH_PIN);
   Serial.println("HOLA QUE TAl");
   while (millis() - time < DEBOUNCE_T){
-    Serial.println("HOLA ADIOS");
   }
 
   while (switch_state == 0) {
     switch_state = digitalRead(SWITCH_PIN);
+    Serial.println(millis());
   }
+  interrupt_flag = false;
+  return millis() - time;
 }
 
 
@@ -251,14 +262,18 @@ void service() {
 void loop() {
 
   int position;
+  long time_pressed;
   lcd.setCursor(0,0);
-  if (interrupt_flag == true){
-    switch_pressed();
+  if (interrupt_flag == true) {
+    time_pressed = switch_pressed();
+    if (time_pressed > 2000 && time_pressed < 3000)
+      software_reset();
+    else if (time_pressed )
   }
   // print the number of seconds since reset:
   //see_counter();
   
-  service_menu();
+  //service_menu();
 
   /*position = admin_menu();
   
