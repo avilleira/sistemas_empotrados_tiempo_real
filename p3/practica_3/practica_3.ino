@@ -133,6 +133,18 @@ void see_counter() {
   lcd.print(real_time);
 }
 
+void show_distance() {
+  long distance, previous_time;
+  previous_time = millis();
+
+  while((millis() - previous_time) < 3000)
+  {
+    distance = ping();
+    lcd.clear();
+    lcd.print(distance + String("cm"));
+  }
+}
+
 int admin_menu() {
 
   int y_value = 0, index_menu = 0, i;
@@ -167,6 +179,7 @@ int admin_menu() {
     lcd.print(admin[index_menu]);
     wdt_reset();
   }
+  lcd.clear();
   return index_menu;
 }
 
@@ -223,11 +236,19 @@ void service() {
 }
 
 void loop() {
+
+  int position;
   lcd.setCursor(0,0);
   
   // print the number of seconds since reset:
   //see_counter();
   attachInterrupt(digitalPinToInterrupt(SWITCH_PIN), switch_pressed, FALLING);
-  admin_menu();
+  position = admin_menu();
+  if (position == 0) {
+    show_temp_hum();
+  }
+  else if (position == 1) {
+    show_distance();
+  }
   wdt_reset();
 }
