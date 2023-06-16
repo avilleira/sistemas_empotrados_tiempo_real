@@ -4,7 +4,7 @@
 #include <TimerOne.h>
 #include "DHT.h"
 
-#define MILISECONDS 1000
+#define MILLISECONDS 1000
 #define DEBOUNCE_T 20
 
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 9; // LCD pins
@@ -41,17 +41,18 @@ void start() {
   }
 }
 
+// Function to reset the Arduino
 void software_reset() {
   wdt_enable(WDTO_15MS);
   while (true);
 }
 
-long ping () {
+long ping() {
   long duration, distance_cm;
-  //Generamos un pulso limpio primero haciendo una espera de 4 segundos
+  // In order to generate a clean pulse, a 400 milliseconds wait is made
   digitalWrite(PIN_TRIGGER, LOW);
-  delayMicroseconds(4);
-  //Se lanza el pulso.
+  delayMicroseconds(400);
+  // Launching the pulse.
   digitalWrite(PIN_TRIGGER, HIGH);
   delayMicroseconds(10);
   digitalWrite(PIN_TRIGGER, LOW);
@@ -62,29 +63,58 @@ long ping () {
   return distance_cm;
 }
 
+// Shows counter in the display.
+void see_counter() {
+  long real_time;
+
+  real_time = (millis() - counter) / MILLISECONDS;
+  while (millis() - real_time < 5*MILLISECONDS) {
+    real_time = (millis() - counter) / MILLISECONDS;
+    lcd.clear();
+    lcd.print(real_time);
+  }
+}
+
+void show_distance() {
+  long distance, previous_time;
+  previous_time = millis();
+
+  while((millis() - previous_time) < 5*MILLISECONDS)
+  {
+    distance = ping();
+    lcd.clear();
+    lcd.print(distance + String("cm"));
+  }
+}
+
 void show_temp_hum() {
   float hum, temp;
   long previous_time;
+
   hum = dht.readHumidity();
   temp = dht.readTemperature();
-
-  lcd.print(String("Temp: ") + temp + String(" C"));
-  lcd.setCursor(0,1);
-  lcd.print(String("Hum ") + hum + String("%"));
-
   previous_time = millis();
 
-  while ((millis() - previous_time) < 5000){}
+  while ((millis() - previous_time) < 5*MILLISECONDS){
+    hum = dht.readHumidity();
+    temp = dht.readTemperature();
+    
+    lcd.print(String("Temp: ") + temp + String(" C"));
+    lcd.setCursor(0,1);
+    lcd.print(String("Hum ") + hum + String("%"));
+    lcd.clear();
+  }
   lcd.setCursor(0,1);
   lcd.clear();
-
 }
 
 void service_menu() { 
-  int Xvalue = 0, Yvalue = 0, index_menu = 0, previous_time;
+  int Xvalue = 0, Yvalue = 0, index_menu = 0, previous_time, time;
   float pwm;
+  bool buttonValue;
+
   bool buttonValue = true;
-  int time = random(4,8);
+  time = random(4,8);
 
   while(buttonValue == true) {
     if (interrupt_flag == true)
@@ -112,14 +142,14 @@ void service_menu() {
     lcd.setCursor(0,1);
     lcd.print(prices[index_menu]);
     lcd.setCursor(0,0);
-    //Reseting watchdog
+    // Reseting watchdog
     wdt_reset();
   }
   lcd.clear();
   lcd.print("Preparando Cafe...");
   pwm = 15;
   previous_time = millis();
-  while ((millis() - previous_time) < time*MILISECONDS){
+  while ((millis() - previous_time) < time*MILLISECONDS){
     if (pwm < 255)
       pwm +=0.01;
     analogWrite(led_pins[1], pwm);
@@ -129,30 +159,19 @@ void service_menu() {
   digitalWrite(led_pins[1], LOW);
   lcd.print("RETIRE BEBIDA");
   previous_time = millis();
-  while ((millis() - previous_time) < 3*MILISECONDS){}
+  while ((millis() - previous_time) < 3*MILLISECONDS){}
   lcd.clear();
   service_menu();
 }
 
-// Shows counter in the display.
-void see_counter() {
-  long real_time;
-
-  real_time = (millis() - counter) / MILISECONDS;
-  lcd.clear();
-  lcd.print(real_time);
-}
-
-void show_distance() {
-  long distance, previous_time;
-  previous_time = millis();
-
-  while((millis() - previous_time) < 3000)
-  {
-    distance = ping();
+void service() {
+  if (ping() < 100) {
     lcd.clear();
-    lcd.print(distance + String("cm"));
+    show_temp_hum();
+    service_menu();
   }
+  else
+    lcd.print("ESPERANDO CLIENTE");
 }
 
 int admin_menu() {
@@ -195,6 +214,25 @@ int admin_menu() {
   return index_menu;
 }
 
+void admin_service() { // Ver Temperatura", "Ver Distancia", "Ver contador", "Modificar Precios"
+  int option;
+
+  option = admin_menu();
+  switch(option) {
+  case 1:
+    show_distance();
+    break;
+  case 2:
+    see_counter();
+    break;
+  case 3:
+    prices_conf();
+    break;
+  default:
+    show_
+  }
+}
+
 // In order to avoid the millis() problem, we need to make the callback this way.
 void switch_callback() {
   interrupt_flag = true;
@@ -217,7 +255,6 @@ long switch_pressed() {
   interrupt_flag = false;
   return millis() - time;
 }
-
 
 void setup() {
 
@@ -249,15 +286,7 @@ void setup() {
   lcd.clear();
 }
 
-void service() {
-  if (ping() < 100) {
-    lcd.clear();
-    show_temp_hum();
-    service_menu();
-  }
-  else
-    lcd.print("ESPERANDO CLIENTE");
-}
+
 
 void loop() {
 
@@ -266,10 +295,15 @@ void loop() {
   lcd.setCursor(0,0);
   if (interrupt_flag == true) {
     time_pressed = switch_pressed();
-    if (time_pressed > 2000 && time_pressed < 3000)
+    if (time_pressed > 2*MILLISECONDS && time_pressed < 3*MILLISECONDS)
       software_reset();
-    else if (time_pressed )
+    else if (time_pressed > 5*MILLISECONDS) {
+      admin_sts = !admin_sts;
+    }
   }
+
+  if (admin_sts = true)
+    admin_service
   // print the number of seconds since reset:
   //see_counter();
   
