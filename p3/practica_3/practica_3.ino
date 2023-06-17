@@ -65,13 +65,16 @@ long ping() {
 
 // Shows counter in the display.
 void see_counter() {
-  long real_time;
+  long real_time, time;
 
+  time = millis();
   real_time = (millis() - counter) / MILLISECONDS;
-  while (millis() - real_time < 5*MILLISECONDS) {
+  while (millis() - time < 5*MILLISECONDS) 
+  {
     real_time = (millis() - counter) / MILLISECONDS;
+  
+    lcd.print(real_time + String("s"));
     lcd.clear();
-    lcd.print(real_time);
   }
 }
 
@@ -98,7 +101,7 @@ void show_temp_hum() {
   while ((millis() - previous_time) < 5*MILLISECONDS){
     hum = dht.readHumidity();
     temp = dht.readTemperature();
-    
+
     lcd.print(String("Temp: ") + temp + String(" C"));
     lcd.setCursor(0,1);
     lcd.print(String("Hum ") + hum + String("%"));
@@ -108,17 +111,96 @@ void show_temp_hum() {
   lcd.clear();
 }
 
+void prices_conf() {
+  int x_value, y_value, index;
+  bool active, edit, button_value, joy_moved;
+
+  active = true;
+  edit = false;
+  joy_moved = false;
+  index = 0;
+
+  while (active == true)
+  {
+    if (interrupt_flag == true) {
+      lcd.clear();
+      return;
+    }
+
+    x_value = analogRead(PIN_JOYX);
+    y_value = analogRead(PIN_JOYY);
+    button_value = digitalRead(PIN_JOY_BUTTON);
+
+    if (x_value < 80)
+      active = false;
+    if (y_value < MIN_Y) {
+      lcd.clear();
+      if (edit == false) {
+        index++;
+        if (index > 4)
+          index = 0;
+      }
+      else
+      {
+        if (joy_moved == false){
+          prices[index] -= 0.05;
+          joy_moved = true;
+        }
+        if (prices[index] < 0)
+        {
+          prices[index] = 0.00;        }
+        }
+    }
+    else if (y_value > MAX_Y) {
+      lcd.clear();
+      if (edit == false) {
+        index--;
+        if (index < 0)
+          index = 4;
+      }
+      else {
+        if (joy_moved == false){
+          Serial.println("ENTRO");
+          prices[index] += 0.05;
+          joy_moved = true;
+        }
+      }
+    }
+    else
+      joy_moved = true;
+
+    if (button_value == false) {
+      Serial.println("EDIRO?");      
+      edit = !edit;
+    }
+
+
+    lcd.setCursor(0,0);
+    lcd.print(String(menu[index]) + String("*")); // Difference the case from the service menu.
+    if (edit == true) {
+      lcd.setCursor(0,1);
+      lcd.print(prices[index]);
+    }
+    lcd.setCursor(0,0);
+    // Reseting watchdog
+    wdt_reset();
+  }
+  lcd.clear();
+}
+
 void service_menu() { 
   int Xvalue = 0, Yvalue = 0, index_menu = 0, previous_time, time;
   float pwm;
   bool buttonValue;
 
-  bool buttonValue = true;
+  buttonValue = true;
   time = random(4,8);
 
   while(buttonValue == true) {
-    if (interrupt_flag == true)
-      break;
+    if (interrupt_flag == true) {
+      lcd.clear();
+      return;
+    }
     Xvalue = analogRead(PIN_JOYX);
     Yvalue = analogRead(PIN_JOYY);
     buttonValue = digitalRead(PIN_JOY_BUTTON);
@@ -182,8 +264,10 @@ int admin_menu() {
   for (i = 0; i < 2; i++)
     digitalWrite(led_pins[i], HIGH);
   while (not_pressed == true) {
-    if (interrupt_flag == true)
+    if (interrupt_flag == true) {
+      Serial.println("ENTRO");
       break;
+    }
     y_value = analogRead(PIN_JOYY);
     not_pressed = digitalRead(PIN_JOY_BUTTON);
 
@@ -229,7 +313,7 @@ void admin_service() { // Ver Temperatura", "Ver Distancia", "Ver contador", "Mo
     prices_conf();
     break;
   default:
-    show_
+    show_temp_hum();
   }
 }
 
@@ -244,7 +328,6 @@ long switch_pressed() {
 
   time = millis();
   switch_state = digitalRead(SWITCH_PIN);
-  Serial.println("HOLA QUE TAl");
   while (millis() - time < DEBOUNCE_T){
   }
 
@@ -283,15 +366,16 @@ void setup() {
   pinMode(PIN_TRIGGER, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
   start();
+  wdt_reset();
   lcd.clear();
 }
 
 
 
 void loop() {
-
   int position;
   long time_pressed;
+
   lcd.setCursor(0,0);
   if (interrupt_flag == true) {
     time_pressed = switch_pressed();
@@ -301,21 +385,9 @@ void loop() {
       admin_sts = !admin_sts;
     }
   }
-
-  if (admin_sts = true)
-    admin_service
-  // print the number of seconds since reset:
-  //see_counter();
-  
-  //service_menu();
-
-  /*position = admin_menu();
-  
-  if (position == 0) {
-    show_temp_hum();
-  }
-  else if (position == 1) {
-    show_distance();
-  }*/
+  if (admin_sts == true)
+    admin_service();
+  else
+    service();
   wdt_reset();
 }
