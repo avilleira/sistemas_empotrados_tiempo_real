@@ -111,6 +111,7 @@ void show_temp_hum() {
   lcd.clear();
 }
 
+// Allows the admin to change the price values.
 void prices_conf() {
   int x_value, y_value, index;
   bool active, edit, button_value, joy_moved;
@@ -160,20 +161,16 @@ void prices_conf() {
       }
       else {
         if (joy_moved == false){
-          Serial.println("ENTRO");
           prices[index] += 0.05;
           joy_moved = true;
         }
       }
     }
     else
-      joy_moved = true;
+      joy_moved = false;
 
-    if (button_value == false) {
-      Serial.println("EDIRO?");      
+    if (button_value == false)
       edit = !edit;
-    }
-
 
     lcd.setCursor(0,0);
     lcd.print(String(menu[index]) + String("*")); // Difference the case from the service menu.
@@ -265,7 +262,6 @@ int admin_menu() {
     digitalWrite(led_pins[i], HIGH);
   while (not_pressed == true) {
     if (interrupt_flag == true) {
-      Serial.println("ENTRO");
       break;
     }
     y_value = analogRead(PIN_JOYY);
@@ -331,10 +327,8 @@ long switch_pressed() {
   while (millis() - time < DEBOUNCE_T){
   }
 
-  while (switch_state == 0) {
+  while (switch_state == 0)
     switch_state = digitalRead(SWITCH_PIN);
-    Serial.println(millis());
-  }
   interrupt_flag = false;
   return millis() - time;
 }
@@ -369,8 +363,6 @@ void setup() {
   wdt_reset();
   lcd.clear();
 }
-
-
 
 void loop() {
   int position;
